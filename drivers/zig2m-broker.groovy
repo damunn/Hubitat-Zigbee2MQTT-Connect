@@ -14,9 +14,10 @@
  *
  * =======================================================================================
  *
- *  Last modified: 2021-12-12
+ *  Last modified: 2022-01-10
  *
  *  Changelog:
+ *  v0.6    - (Beta) Improved reconnection attempt logic
  *  v0.5    - (Beta) Preliminary group suppport
  *  v0.4b   - (Beta) Added connection watchdog to broker (better reconnection after code updates, etc.)
  *  v0.4    - (Beta) Improved reconnection after code update, etc.
@@ -35,6 +36,8 @@ import com.hubitat.app.DeviceWrapper
 // Updating code disconnects MQTT without getting disconenction message; this is one way to handle that:
 @Field static final ConcurrentHashMap<Long,Boolean> hasInitalized = [:]
 @Field static final Boolean enableConnectionWatchdog = true
+// Default "reconnect after..." seconds if MQTT status reports disconneted:
+@Field static final Integer startingReconnectTime = 5
 // List when received from Z2M:
 @Field static final ConcurrentHashMap<Long,List> devices = [:]
 @Field static final ConcurrentHashMap<Long,List> groups = [:]
@@ -188,9 +191,12 @@ void connectionWatchdog() {
    }
    else if (!(interfaces.mqtt.isConnected())) {
       doSendEvent("status", "disconnected")
-      // 5 is default if previously connected successfully, so this should only happen the first time
+      // startingReconnectTime is default if previously connected successfully, so this should only happen the first time
       // rather than doing this more often if the watchdog runs more often than the reconect attempt:
-      if (state.connectionRetryTime == 5) runIn(state.connectionRetryTime, "reconnect")
+      if (state.connectionRetryTime == startingReconnectTime) runIn(state.connectionRetryTime, "reconnect")
+   }
+   else if (device.currentValue("disconnected")) {
+      if (state.connectionRetryTime == startingReconnectTime) runIn(state.connectionRetryTime, "reconnect")
    }
 }
 
@@ -375,7 +381,7 @@ void mqttClientStatus(String message) {
    if (enableDebug) log.debug "mqttClientStatus($message)"
    if ((message.startsWith("Status: Connection succeeded"))) {
       doSendEvent("status", "connected")
-      state.connectionRetryTime = 5
+      state.connectionRetryTime = startingReconnectTime
       unschedule("reconnect")
       pauseExecution(250)
       subscribeToTopic()
@@ -383,7 +389,7 @@ void mqttClientStatus(String message) {
    else if (!(interfaces.mqtt.isConnected())) {
       doSendEvent("status", "disconnected")
       if (!(state.connectionRetryTime)) {
-         state.connectionRetryTime = 5
+         state.connectionRetryTime = startingReconnectTime
       }
       else if (state.connectionRetryTime < 60) {
          state.connectionRetryTime += 10
