@@ -213,6 +213,7 @@ void parse(String message) {
          break
       case { it.startsWith("${settings.topic}/bridge/groups") }:
          groups[device.idAsLong] = parseJson(parsedMsg.payload)
+         break
       // General Bridge info, some of which we may care about but are ignoring for now...but helps filter remaining to just devices
       case { it.startsWith("${settings.topic}/bridge/") }:
          if (enableDebug) log.debug "ignoring bridge topic ${parsedMsg.topic}, payload ${parsedMsg.payload}"
