@@ -1,7 +1,7 @@
 /**
  * ============================  Zigbee2MQTT Broker (Driver) =============================
  *
- *  Copyright 2021 Robert Morris
+ *  Copyright 2025 Dale Munn / Robert Morris
  * 
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -14,9 +14,10 @@
  *
  * =======================================================================================
  *
- *  Last modified: 2022-01-10
+ *  Last modified: 2025-08-11
  *
  *  Changelog:
+ *  v1.0    - 250811 Chage to child devuces under Broker
  *  v0.6    - (Beta) Improved reconnection attempt logic
  *  v0.5    - (Beta) Preliminary group suppport
  *  v0.4b   - (Beta) Added connection watchdog to broker (better reconnection after code updates, etc.)
@@ -45,8 +46,8 @@ import com.hubitat.app.DeviceWrapper
 metadata {
    definition(
       name: "Zigbee2MQTT Broker",
-      namespace: "RMoRobert",
-      author: "Robert Morris",
+      namespace: "Zigbee2MQTT",
+      author: "Robert Morris/Dale Munn",
       importUrl: "https://raw.githubusercontent.com/RMoRobert/Zigbee2MQTTDConnect/main/drivers/zig2m-broker.groovy"
    ) {
       capability "Actuator"
@@ -82,13 +83,14 @@ metadata {
 
 void installed() {
    log.debug "installed()"
+   state.parentId = parent.getTheAppId()
    runIn(4, "initialize")
 }
 
 void updated() {
    log.debug "updated()"
+	return
    initialize()
-   state.parentId = parent.getTheAppId()
    // TODO: See if this works or is needed:
    List<Map<String,Map>> newSettings = []
    newSettings << ["ipAddress": [value: settings.ipAddress, type: "string"]]
@@ -151,7 +153,7 @@ void connect() {
    if (enableDebug) log.debug "connecting now..."
    interfaces.mqtt.connect(getConnectionUri(), settings.clientId, settings.username, settings.password)
    pauseExecution(1000)
-   runIn(4, "subscribeToTopic")
+//   runIn(4, "subscribeToTopic")
 }
 
 void updateSettings(List<Map<String,Map>> newSettings) {
@@ -213,6 +215,7 @@ void parse(String message) {
          break
       case { it.startsWith("${settings.topic}/bridge/groups") }:
          groups[device.idAsLong] = parseJson(parsedMsg.payload)
+         break
       // General Bridge info, some of which we may care about but are ignoring for now...but helps filter remaining to just devices
       case { it.startsWith("${settings.topic}/bridge/") }:
          if (enableDebug) log.debug "ignoring bridge topic ${parsedMsg.topic}, payload ${parsedMsg.payload}"
@@ -241,7 +244,7 @@ void parse(String message) {
          //log.trace "is device --> ${parsedMsg.topic} ---> PAYLOAD: ${parsedMsg.payload}"
          String friendlyName = parsedMsg.topic.substring("${settings.topic}/".length())
          String ieeeAddress =  devices[device.idAsLong].find { it.friendly_name == friendlyName }.ieee_address
-         DeviceWrapper hubitatDevice = parent.getChildDevice("Zig2M/${state.parentId ?: parent.getTheAppId()}/${ieeeAddress}")
+         DeviceWrapper hubitatDevice = getChildDevice("Zig2M/${state.parentId ?: parent.getTheAppId()}/${ieeeAddress}")
          if (hubitatDevice == null) break
          //log.trace "**DEV = $hubitatDevice"
          List<Map> evts = parsePayloadToEvents(friendlyName, parsedMsg.payload)
@@ -360,6 +363,9 @@ List<Map> parsePayloadToEvents(String friendlyName, String payload) {
                // a bit different from the rest; gets converted to Hubitat-friendly events in custom driver:
                eventList << [name: "action", value: value]
                break
+            case "linkquality":
+            case "update":
+               break
             default:
                if (enableDebug) log.debug "ignoring $key = $value"
          }
@@ -383,8 +389,9 @@ void mqttClientStatus(String message) {
       doSendEvent("status", "connected")
       state.connectionRetryTime = startingReconnectTime
       unschedule("reconnect")
-      pauseExecution(250)
-      subscribeToTopic()
+      runIn(4, "subscribeToTopic")
+  // pauseExecution(250)
+  //    subscribeToTopic()
    }
    else if (!(interfaces.mqtt.isConnected())) {
       doSendEvent("status", "disconnected")
@@ -461,6 +468,18 @@ void logDevices(Boolean prettyPrint=true) {
    }
 }
 
+DeviceWrapper brokerChildDevice(devDNI){
+   return getChildDevice(devDNI)
+}
+
+DeviceWrapper brokerAddChildDevice(String namespace, String typeName, String deviceNetworkId, Map properties = [:]) {
+   return addChildDevice(namespace, typeName, deviceNetworkId, properties )
+}
+
+List brokerGetChildDevices() {
+   return getChildDevices()
+}
+
 // Hubiat-provided color/name mappings
 Map<String,String> getGenericColorName(Number hue, Number saturation=100, Boolean hiRezHue=false) {
    String colorName
@@ -526,4 +545,204 @@ private void doSendEvent(String eventName, eventValue) {
    String descriptionText = "${device.displayName} ${eventName} is ${eventValue}"
    if (settings.enableDesc) log.info descriptionText
    sendEvent(name: eventName, value: eventValue, descriptionText: descriptionText)
+}
+
+////////////////////////////////////
+// Component Methods
+////////////////////////////////////
+
+void componentRefresh(DeviceWrapper device, List<Map<String,String>> payloads) {
+   if (enableDebug) log.debug "componentRefresh(${device.displayName}), $payloads"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   payloads.each { Map<String,String> payload ->
+      publishForIEEE(ieee, "get", payload)
+      pauseExecution(50)
+   }
+}
+
+void componentRefresh(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentRefresh(${device.displayName})"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   List<Map<String,String>> payloads = []
+   if (device.hasAttribute("switch")) payloads << [state: ""]
+   if (device.hasAttribute("level")) payloads << [brightness: ""]
+   if (device.hasAttribute("hue")) payloads << [color: [x: "", y: ""]]
+   if (device.hasAttribute("colorTemperature")) payloads << [color_temp: ""]
+   if (device.hasAttribute("lock")) payloads << [state: ""]
+   // probably can flesh this out more for other devices later...
+   payloads.each { Map<String,String> payload ->
+      publishForIEEE(ieee, "get", payload)
+      pauseExecution(50)
+   }
+}
+
+void componentOn(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentOn(${device.displayName})"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,String> payload = [state: "ON"]
+   publishForIEEE(ieee, "set", payload)
+}
+
+void componentOff(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentOn(${device.displayName})"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,String> payload = [state: "OFF"]
+   publishForIEEE(ieee, "set", payload)
+}
+
+void componentSetLevel(DeviceWrapper device, Number level, Number transitionTime=null) {
+   if (enableDebug) log.debug "componentSetLevel(${device.displayName}, $level, $transitionTime)"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,Number> payload = [brightness: Math.round((level as Float) * 2.55)]
+   if (transitionTime != null) payload << [transition: transitionTime]
+   publishForIEEE(ieee, "set", payload)
+}
+
+/* Haven't found Z2M bulb that supports yet...
+void componentPresetLevel(DeviceWrapper device, Number level) {
+   if (enableDebug) log.debug "componentPresetLevel(${device.displayName}, $level)"
+   DeviceWrapper brokerDev = getChildDevice("Zig2M/${app.id}")
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,Number> payload = [brightness: Math.round((level as Float) * 2.55)]
+   brokerDev.publishForIEEE(ieee, "set", payload)
+}
+*/
+
+void componentStartLevelChange(DeviceWrapper device, String direction) {
+   if (enableDebug) log.debug "componentStartLevelChange(${device.displayName}, $direction)"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Integer mvRate = (direction.toLowerCase() == "up" ? 85 : -85)
+   Map<String,Number> payload = [brightness_move: mvRate]
+   publishForIEEE(ieee, "set", payload)
+}
+
+void componentStopLevelChange(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentStopLevelChange(${device.displayName})"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,Number> payload = [brightness_move: 0]
+   publishForIEEE(ieee, "set", payload)
+}
+
+void componentSetColorTemperature(DeviceWrapper device, Number colorTemperature, Number level=null, Number transitionTime=null) {
+   if (enableDebug) log.debug "componentSetColorTemperature(${device.displayName}, $colorTemperature, $level, $transitionTime)"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,Number> payload = [color_temp: Math.round(1000000.0/colorTemperature)]
+   if (level != null) payload << [brightness: Math.round((level as Float) * 2.55)]
+   if (transitionTime != null) payload << [transition: transitionTime]
+   if (device.currentValue("switch") != "on") payload << [state: "ON"]
+   publishForIEEE(ieee, "set", payload)
+}
+
+// Uses RGB (most widely accepted?)
+void componentSetColor(DeviceWrapper device, Map<String,Number> colorMap) {
+   if (enableDebug) log.debug "componentSetColor(${device.displayName}, $colorMap)"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   List rgb = hubitat.helper.ColorUtils.hsvToRGB([colorMap.hue, colorMap.saturation, colorMap.level ?: device.currentValue('level')])
+   Map<String,Map<String,String>> payload = [color: [rgb: rgb.join(',')]]
+   if (colorMap.rate != null) payload << [transition: colorMap.rate]
+   if (device.currentValue("switch") != "on") payload << [state: "ON"]
+   publishForIEEE(ieee, "set", payload)
+}
+
+// Uses HS (doesn't work for all?)
+void componentSetColorHS(DeviceWrapper device, Map<String,Number> colorMap) {
+   if (enableDebug) log.debug "componentSetColor(${device.displayName}, $colorMap)"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,Map<String,String>> payload = [color: [h: Math.round((colorMap.hue as float) / 3.60), s: colorMap.saturation, v: colorMap.level ?: device.currentValue('level')]]
+   if (colorMap.rate != null) payload << [transition: colorMap.rate]
+   if (device.currentValue("switch") != "on") payload << [state: "ON"]
+   publishForIEEE(ieee, "set", payload)
+}
+
+void componentSetHue(DeviceWrapper device, Number hue) {
+   if (enableDebug) log.debug "componentSetHue(${device.displayName}, $hue)"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   List rgb = hubitat.helper.ColorUtils.hsvToRGB([hue, device.currentValue('saturation'), device.currentValue('level')])
+   Map<String,Map<String,String>> payload = [color: [rgb: rgb.join(',')]]
+   if (device.currentValue("switch") != "on") payload << [state: "ON"]
+   publishForIEEE(ieee, "set", payload)
+}
+
+void componentSetSaturation(DeviceWrapper device, Number sat) {
+   if (enableDebug) log.debug "componentSetSaturation(${device.displayName}, $sat)"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   List rgb = hubitat.helper.ColorUtils.hsvToRGB([device.currentValue('hue'), sat, device.currentValue('level')])
+   Map<String,Map<String,String>> payload = [color: [rgb: rgb.join(',')]]
+   if (device.currentValue("switch") != "on") payload << [state: "ON"]
+   publishForIEEE(ieee, "set", payload)
+}
+
+// Hubitat uses number, but String is easier to work with in Z2M, so custom
+// bulb driver implements both. Use the String variant only when calling parent for now!
+void componentSetEffect(DeviceWrapper device, String effectName) {
+   if (enableDebug) log.debug "componentSetEffect(${device.displayName}, String $effectName)"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,Number> payload = [effect: effectName]
+   publishForIEEE(ieee, "set", payload)
+}
+
+void componentSetEffect(DeviceWrapper device, Number effectNumber) {
+   if (enableDebug) log.debug "componentSetEffect(${device.displayName}, Number $effectNumber)"
+   log.warn "Not yet implemented; use String effecet name instead of number for now."
+}
+ 
+void componentPublish(DeviceWrapper device, String topic=null, String payload=null) {
+   if (enableDebug) log.debug "componentPublish(${device.displayName}, $topic, $payload)"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   publishForIEEE(ieee, topic, payload)
+} 
+
+void componentLock(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentLock(${device.displayName})"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,String> payload = [state: "LOCK"]
+   publishForIEEE(ieee, "set", payload)
+}
+
+void componentUnlock(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentUnlock(${device.displayName})"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,String> payload = [state: "UNLOCK"]
+   publishForIEEE(ieee, "set", payload)
+}
+
+void componentDeleteCode(DeviceWrapper device, Integer codePosition) {
+   if (enableDebug) log.debug "componentDeleteCode(${device.displayName}, ${codePosition})"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,String> payload = [pin_code: [user: codePosition, user_enabled: false, pin_code: null]]
+   publishForIEEE(ieee, "set", payload)
+}
+
+void componentGetCodes(DeviceWrapper device) {
+   if (enableDebug) log.debug "componentDeleteCode(${device.displayName}, ${codePosition})"
+   log.warn "getCodes() not implemented"
+}
+
+void componentSetCode(DeviceWrapper device, Integer codePosition, String pincode, String name=null) {
+   if (enableDebug) log.debug "componentSetCode(${device.displayName}, ${codePosition})"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+   Map<String,String> payload = [pin_code: [user: codePosition, user_enabled: true, pin_code: Integer.parseInt(pincode)]]
+   publishForIEEE(ieee, "set", payload)
+}
+
+void componentSetCodeLength(DeviceWrapper device, Integer codeLength) {
+   if (enableDebug) log.debug "componentSetCodeLength(${device.displayName}, ${codeLength})"
+   List<Map> evts = [[name: "codeLength", value: codeLength]]
+   device.parse(evts)
+}
+
+String getDefinitionForDevice(DeviceWrapper device) {
+   if (enableDebug) log.debug "getDefinitionForDevice(${device.displayName})"
+   String ieee = device.getDeviceNetworkId().tokenize('/')[-1]
+      List zigDevs = getDeviceList()
+      Map z2mDev = zigDevs.find { it.ieee_address == ieee }
+      if (z2mDev != null) {
+         // Can use if want Groovy toString output instead:
+         //log.debug "DEFINITION: ${z2mDev.definition}"
+         log.debug "DEFINITION: " + groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(z2mDev.definition))
+      }
+      else {
+         log.debug "No device found on Zigbee2MQTT broker for ${device.displayName}"
+      }
+   return 
 }
