@@ -1,0 +1,71 @@
+/**
+ * ====================  zig2m Component Contact Driver ==========================
+ * 
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ *  in compliance with the License. You may obtain a copy of the License at:
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
+ *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
+ *  for the specific language governing permissions and limitations under the License.
+ *
+ * =======================================================================================
+ *
+ *  Changelog:
+ *  2025-08-14 - Initial release
+ */
+
+import groovy.transform.Field
+
+@Field static final List<String> parsableAttributes = ["battery", "temperature", "contact"]
+@Field static final Integer debugAutoDisableMinutes = 30
+
+metadata {
+   definition(name: "zig2m Component Contact Sensor", namespace: "Zigbee2MQTT", author: "Dale Munn", component: true) {
+      capability "Sensor"
+      capability "ContactSensor"
+      capability "Battery"
+      capability "TemperatureMeasurement"
+      capability "RelativeHumidityMeasurement"
+      capability "Refresh"
+   }
+   preferences {
+      input name: "enableDebug", type: "bool", title: "Enable debug logging", defaultValue: true
+      input name: "enableDesc", type: "bool", title: "Enable descriptionText logging", defaultValue: true
+   }
+}
+
+void installed() {
+   log.debug "installed()"
+   device.updateSetting("enableDesc", [type:"bool", value:true])
+   refresh()
+}
+
+void updated() {
+   log.debug "updated()"
+   log.warn "description logging is: ${enableDesc == true}"
+   initialize()
+}
+
+void initialize() {
+   log.debug "initialize()"
+   if (enableDebug) {
+      log.debug "Debug logging will be automatically disabled in ${debugAutoDisableMinutes} minutes"
+      runIn(debugAutoDisableMinutes*60, "debugOff")
+   }
+}
+
+void debugOff() {
+   log.warn "Disabling debug logging"
+   device.updateSetting("enableDebug", [value:false, type:"bool"])
+}
+
+void refresh() {
+   if (enableDebug) log.debug "refresh()"
+   List<Map<String,String>> payloads = []
+   payloads << [contact: ""]
+ 
+   parent?.componentRefresh(this.device, payloads)
+}
+#include Zigbee2MQTT.ComponentDriverLibrary_Parse
