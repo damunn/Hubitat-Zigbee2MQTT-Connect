@@ -1,7 +1,7 @@
 /**
  * ============================  Zigbee2MQTT Button (Driver) =============================
  *
- *  Copyright 2021 Robert Morris
+ *  Copyright 2025 Dale Munn /  Robert Morris
  * 
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -14,9 +14,8 @@
  *
  * =======================================================================================
  *
- *  Last modified: 2021-11-20
- *
  *  Changelog:
+ *   1.0   250824 - Change name and namespace
  *  v0.4    - (Beta) Improved vendor/model to event matching; added more devices; improved battery parsing
  *  v0.3    - (Beta) Added battery parsing (if device supports)
  *  v0.2    - (Beta) Added additional vendor/model combinations for events
@@ -325,7 +324,7 @@ import java.util.concurrent.ConcurrentHashMap
 ]
 
 metadata {
-   definition (name: "Zigbee2MQTT Component Button", namespace: "RMoRobert", author: "Robert Morris",
+   definition (name: "zig2m Component Button", namespace: "Zigbee2MQTT", author: "Robert Morris",
                importUrl: "https://raw.githubusercontent.com/RMoRobert/HASSConnect/main/drivers/zig2m-button.groovy") {
       capability "Sensor"
       capability "Battery"
@@ -344,7 +343,7 @@ metadata {
    }
 }
 
-#include RMoRobert.zigbee2MQTTComponentDriverLibrary_Common
+#include Zigbee2MQTT.ComponentDriverLibrary_Common
 
 // Using custom parse() here, NOT an include  for RMoRobert.zigbee2MQTTComponentDriverLibrary_Parse
 
