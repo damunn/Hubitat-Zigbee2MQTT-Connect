@@ -13,6 +13,7 @@
  * =======================================================================================
  *
  *  Changelog:
+ *	250823	1.0	Change driver name, namespace
  *  2021-11-13 - Initial release
  */
 
@@ -22,7 +23,7 @@ import groovy.transform.Field
 @Field static final Integer debugAutoDisableMinutes = 30
 
 metadata {
-   definition(name: "Generic Component Acceleration/Axis/Contact Sensor", namespace: "RMoRobert", author: "Robert Morris", component: true) {
+   definition(name: "zig2m Component Acceleration/Axis/Contact Sensor", namespace: "Zigbee2MQTT", author: "Robert Morris", component: true) {
       capability "Sensor"
       capability "Battery"
       capability "TemperatureMeasurement"
@@ -36,7 +37,7 @@ metadata {
 }
 
 
-#include RMoRobert.zigbee2MQTTComponentDriverLibrary_Common
+#include Zigbee2MQTT.ComponentDriverLibrary_Common
 
 // Using custom parse() here, NOT an include  for RMoRobert.zigbee2MQTTComponentDriverLibrary_Parse
 
