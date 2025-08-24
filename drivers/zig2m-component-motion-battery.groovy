@@ -22,7 +22,7 @@ import groovy.transform.Field
 @Field static final Integer debugAutoDisableMinutes = 30
 
 metadata {
-   definition(name: "Generic Component Motion (with Battery) Sensor", namespace: "Zigbee2MQTT", author: "Robert Morris", component: true) {
+   definition(name: "zig2m Component Motion (with Battery) Sensor", namespace: "Zigbee2MQTT", author: "Robert Morris", component: true) {
       capability "Sensor"
       capability "Battery"
       capability "MotionSensor"
