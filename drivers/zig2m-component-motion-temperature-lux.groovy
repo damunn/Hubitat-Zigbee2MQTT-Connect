@@ -1,5 +1,5 @@
 /**
- * ===================  Generic Component Motion/Temperature/Lux Driver ========================
+ * ===================  Generic zig2m Motion/Temperature/Lux Driver ========================
  * 
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -22,7 +22,7 @@ import groovy.transform.Field
 @Field static final Integer debugAutoDisableMinutes = 30
 
 metadata {
-   definition(name: "Generic Component Motion/Temperature/Lux Sensor", namespace: "RMoRobert", author: "Robert Morris", component: true) {
+   definition(name: "zig2m Component Motion/Temperature/Lux Sensor", namespace: "Zigbee2MQTT", author: "Robert Morris", component: true) {
       capability "Sensor"
       capability "Battery"
       capability "MotionSensor"
@@ -36,5 +36,5 @@ metadata {
    }
 }
 
-#include RMoRobert.zigbee2MQTTComponentDriverLibrary_Common
-#include RMoRobert.zigbee2MQTTComponentDriverLibrary_Parse
+#include Zigbee2MQTT.ComponentDriverLibrary_Common
+#include Zigbee2MQTT.ComponentDriverLibrary_Parse
