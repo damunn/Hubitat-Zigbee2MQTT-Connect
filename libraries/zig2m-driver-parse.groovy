@@ -1,11 +1,11 @@
 // Version 0.9.0
 
 library (
-  author: "RMoRobert",
+  author: "Dale Munn / RMoRobert",
   category: "internal",
   description: "Internal use by Zigbee2MQTT Connect virtaul devices; includes default parse methods",
-  name: "zigbee2MQTTComponentDriverLibrary_Parse",
-  namespace: "RMoRobert",
+  name: "ComponentDriverLibrary_Parse",
+  namespace: "Zigbee2MQTT",
   documentationLink: "comingSoon"
 )
 
@@ -23,3 +23,4 @@ void parse(List<Map> description) {
       }
    }
 }
+
