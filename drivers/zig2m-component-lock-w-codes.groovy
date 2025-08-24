@@ -23,7 +23,7 @@ import groovy.transform.Field
 @Field static final Integer debugAutoDisableMinutes = 30
 
 metadata {
-   definition(name: "Zigbee2MQTT Component Lock (with Codes)", namespace: "RMoRobert", author: "Robert Morris", component: true) {
+   definition(name: "zig2m Component Lock (with Codes)", namespace: "Zigbee2MQTT", author: "Robert Morris", component: true) {
       capability "Sensor"
       capability "Battery"
       capability "TemperatureMeasurement"
@@ -69,7 +69,7 @@ void setCodeLength(Integer pincodeLength) {
    sendEvent(name: "codeLength", value: pincodeLength, descriptionText: "${device.displayName} codeLength is ${pincodeLength}")
 }
 
-#include RMoRobert.zigbee2MQTTComponentDriverLibrary_Common
+#include Zigbee2MQTT.ComponentDriverLibrary_Common
 
 // Custom parse, so not including the parse library
 
