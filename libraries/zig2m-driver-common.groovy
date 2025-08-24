@@ -1,11 +1,11 @@
-// Version 0.9.0
+// Version 1.0
 
 library (
-  author: "RMoRobert",
+  author: "RMoRobert/DAMunn",
   category: "internal",
   description: "Internal use by Zigbee2MQTT Connect virtaul devices; includes common methods",
-  name: "zigbee2MQTTComponentDriverLibrary_Common",
-  namespace: "RMoRobert",
+  name: "ComponentDriverLibrary_Common",
+  namespace: "Zigbee2MQTT",
   documentationLink: "comingSoon"
 )
 
