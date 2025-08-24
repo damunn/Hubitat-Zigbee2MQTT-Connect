@@ -272,7 +272,7 @@ List<String> getBestMatchDriver(List<Map> exposes) {
    else if (exposes.features.find { flist -> flist.find { f -> f.name == "color_xy"  || f.name == "color_hs "} &&
                                            flist.find { f-> f.name == "color_temp" } } &&
             exposes.find { it.name == "effect"}) {
-      driverName = "Zigbee2MQTT Component RGBW Effects Bulb"
+      driverName = "zig2m Component RGBW Effects Bulb"
       namespace = customDriverNamespace
    }   
    else if (exposes.features.find { flist -> flist.find { f -> f.name == "color_xy"  || f.name == "color_hs "} &&
@@ -286,7 +286,7 @@ List<String> getBestMatchDriver(List<Map> exposes) {
       driverName = "Generic Component CT"
    }
    else if (exposes.find { it.name == "action" }) {
-      driverName = "Zigbee2MQTT Component Button"
+      driverName = "zig2m Component Button"
       namespace = customDriverNamespace
    }
    else if (exposes.features.find { flist -> flist.find { f -> f.name == "state"  } } ) {
